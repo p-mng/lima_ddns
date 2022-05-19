@@ -1,0 +1,9 @@
+[Unit]
+Description = Lima-City DDNS update every 5 minutes
+
+[Timer]
+OnBootSec = 5min
+OnCalendar = *:0/5
+
+[Install]
+WantedBy = basic.target  

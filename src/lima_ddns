@@ -1,0 +1,115 @@
+#!/usr/bin/env python
+
+# Created and tested with API v1.0.3
+# OpenAPI documentation: https://www.lima-city.de/docs/lima-city_1.0.3-oas3.json
+#
+# This program automatically retrieves the users public IPv4 and IPv6 addresses
+# and updates the given DNS records on Lima Citys nameservers.
+
+import json
+import logging
+
+import click
+import requests
+from requests.auth import HTTPBasicAuth
+
+logging.basicConfig(level=logging.INFO,
+                    format="[%(filename)s:%(lineno)3d] %(levelname)s : %(message)s")
+
+api_key = None
+domain_id = None
+records_ipv4 = None
+records_ipv6 = None
+
+
+def update_record(old, content):
+    if old["content"] == content:
+        logging.info("No update needed for record %d." % old["id"])
+        return
+
+    logging.info("Updating record %d..." % old["id"])
+    old_copy = dict(old)
+    record_id = old_copy.pop("id")
+    del old_copy["subdomain"]
+    del old_copy["priority"]
+    data = {"nameserver_record": {}}
+    data["nameserver_record"].update(old_copy)
+    data["nameserver_record"].update({"content": content})
+
+    headers = {"Content-Type": "application/json"}
+    response = requests.put("https://www.lima-city.de/usercp/domains/%s/records/%s" % (domain_id, record_id),
+                            auth=HTTPBasicAuth("api", api_key), data=json.dumps(data), headers=headers)
+
+    if response.status_code == 200:
+        response_json = None
+        try:
+            response_json = json.loads(response.content.decode("utf-8"))
+        except:
+            logging.error("Received HTTP status 200 but no valid response.")
+            logging.error(response.content.decode("utf-8"))
+            exit(30)
+        if response_json["status"] != "ok":
+            logging.error("Received valid response but status is %s." %
+                          response_json["status"])
+        else:
+            logging.info("Successfully updated DNS record.")
+
+
+@click.command()
+@click.option("-a", "--api-key", "api_key", help="Lima City REST API key with DNS r/w permissions.", required=True, type=click.STRING)
+@click.option("-d", "--domain-id", "domain_id", help="The numeric ID of your domain.", required=True, type=click.INT)
+@click.option("-4", "--records-ipv4", "records_ipv4", help="The ID(s) of the IPv4 record(s). Can be specified multiple times.",
+              type=click.INT, multiple=True)
+@click.option("-6", "--records-ipv6", "records_ipv6", help="The ID(s) of the IPv6 record(s). Can be specified multiple times.",
+              type=click.INT, multiple=True)
+def main(api_key, domain_id, records_ipv4, records_ipv6):
+    globals()["api_key"] = api_key
+    globals()["domain_id"] = domain_id
+    globals()["records_ipv4"] = records_ipv4
+    globals()["records_ipv6"] = records_ipv6
+
+    if (len(records_ipv4) == 0 & len(records_ipv6) == 0):
+        logging.info("No IPv4 or IPv6 records specified.")
+        exit(0)
+
+    logging.info("Retrieving public IP addresses...")
+    ipv4 = requests.get("https://v4.ipv6-test.com/api/myip.php")
+    ipv6 = requests.get("https://v6.ipv6-test.com/api/myip.php")
+
+    if ipv4.status_code != 200:
+        logging.error("Could not retrieve public IPv4 address.")
+        exit(10)
+    elif ipv6.status_code != 200:
+        logging.error("Could not retrieve public IPv6 address.")
+        exit(11)
+
+    ipv4 = ipv4.content.decode("utf-8")
+    ipv6 = ipv6.content.decode("utf-8")
+    logging.info("IPv4: %s" % ipv4)
+    logging.info("IPv6: %s" % ipv6)
+
+    records = requests.get("https://www.lima-city.de/usercp/domains/%d/records.json" %
+                           domain_id, auth=HTTPBasicAuth("api", api_key))
+
+    if records.status_code != 200:
+        logging.error("Could not retrieve DNS records.")
+        exit(20)
+
+    records_parsed = None
+    try:
+        records_parsed = json.loads(records.content.decode("utf-8"))
+    except:
+        logging.error(
+            "Received invalid records. Are you using a correct API key?")
+        exit(21)
+    logging.info("Retrieved DNS records.")
+
+    for i in records_parsed["records"]:
+        if i["id"] in records_ipv4:
+            update_record(i, ipv4)
+        if i["id"] in records_ipv6:
+            update_record(i, ipv6)
+
+
+if __name__ == "__main__":
+    main()

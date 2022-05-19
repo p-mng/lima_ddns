@@ -1,0 +1,7 @@
+[Unit]
+Description = Updates Lima-City DDNS records
+
+[Service]
+DynamicUser = yes
+ExecStart = /usr/bin/lima-ddns
+Type = oneshot
