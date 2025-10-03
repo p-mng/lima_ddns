@@ -1,0 +1,15 @@
+interval: 300
+token: cYcdrwXvxGpqmec3R464VEHaAL5F7Vt2
+domains:
+  - id: 27272
+    records:
+      - type: A
+        content: "*.example.com"
+        priority: 10
+        ttl: 3600
+      - type: A
+        content: example.com
+        ttl: 300
+      - type: AAAA
+        content: example.com
+        ttl: 300

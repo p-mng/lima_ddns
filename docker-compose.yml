@@ -1,0 +1,10 @@
+version: "3"
+services:
+  lima_ddns:
+    build: .
+    container_name: lima_ddns
+    image: lima_ddns:latest
+    volumes:
+      - ./config.yaml:/config.yaml
+    network_mode: host
+    restart: unless-stopped

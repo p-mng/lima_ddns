@@ -1,0 +1,12 @@
+kind: pipeline
+name: default
+
+steps:
+  - name: test
+    image: golang:1.19.5
+    commands:
+      - CGO_ENABLED=0 go test -v
+  - name: build
+    image: golang:1.19.5
+    commands:
+      - CGO_ENABLED=0 go build .
