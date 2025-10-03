@@ -1,3 +1,4 @@
+name: Lint, test, and build binary
 on:
   push:
     branches: ["main"]
